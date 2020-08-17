@@ -14,8 +14,27 @@ def find(image, debug=False):
     threshold = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     threshold = cv2.bitwise_not(threshold)
 
+    count = cv2.findContours(threshold.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    count = imutils.grab_contours(count)
+    count = sorted(count, key=cv2.contourArea, reverse=True)
+
+    puzzleCount = None
+
+    for obj in count:
+        peri = cv2.arcLength(obj, True)
+        approximation = cv2.approxPolyDP(obj, 0.02 * peri, True)
+
+        if len(approximation) == 4:
+            puzzleCount = approximation
+            break
+
+    if puzzleCount is None:
+        raise Exception(("Couldn't find any Sudoku outline"))
+
     if debug:
-        cv2.imshow('Puzzle', threshold)
+        output = imgUMat.copy()
+        cv2.drawContours(output, [puzzleCount], -1, (0, 255, 0), 2)
+        cv2.imshow('Puzzle', output)
         cv2.waitKey(0)
 
 
