@@ -31,11 +31,22 @@ def find(image, debug=False):
     if puzzleCount is None:
         raise Exception(("Couldn't find any Sudoku outline"))
 
+    puzzle = four_point_transform(imgUMat, puzzleCount.reshape(4, 2))
+    warped = four_point_transform(gray, puzzleCount.reshape(4, 2))
+
     if debug:
+        cv2.imshow("Puzzle Threshold", threshold)
+        # cv2.waitKey(0)
+
         output = imgUMat.copy()
         cv2.drawContours(output, [puzzleCount], -1, (0, 255, 0), 2)
-        cv2.imshow('Puzzle', output)
+        cv2.imshow('Puzzle Contours', output)
+        # cv2.waitKey(0)
+
+        cv2.imshow("Puzzle Transform", puzzle)
         cv2.waitKey(0)
+
+    return (puzzle, warped)
 
 
 find(test, True)
