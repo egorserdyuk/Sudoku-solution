@@ -1,82 +1,72 @@
-from imutils.perspective import four_point_transform
-from skimage.segmentation import clear_border
+from recognizer import extractionDigit, find
+from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.models import load_model
+from sudoku import Sudoku
 import numpy as np
 import imutils
 import cv2
 
-test = "assets/example.jpg"
+print(r"Load classifier")
+model = load_model('assets/model.h5')
 
+print(r"Processing")
+image = cv2.imread('assets/example.jpg')
+image = imutils.resize(image, width=600)
 
-def find(image, debug=False):
-    imgUMat = cv2.imread(image)
-    gray = cv2.cvtColor(imgUMat, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (7, 7), 3)
-    threshold = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-    threshold = cv2.bitwise_not(threshold)
+(puzzleImage, warped) = find(image, debug=False)
 
-    contour = cv2.findContours(threshold.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contour = imutils.grab_contours(contour)
-    contour = sorted(contour, key=cv2.contourArea, reverse=True)
+board = np.zeros((9, 9), dtype='int')
 
-    puzzleContour = None
+X = warped.shape[1]
+Y = warped.shape[0]
 
-    for obj in contour:
-        peri = cv2.arcLength(obj, True)
-        approximation = cv2.approxPolyDP(obj, 0.02 * peri, True)
+cellLocs = []
 
-        if len(approximation) == 4:
-            puzzleContour = approximation
-            break
+for y in range(0, 9):
+    row = []
 
-    if puzzleContour is None:
-        raise Exception(("Couldn't find any Sudoku outline"))
+    for x in range(0, 9):
+        startX = x * X
+        startY = y * Y
 
-    puzzle = four_point_transform(imgUMat, puzzleContour.reshape(4, 2))
-    warped = four_point_transform(gray, puzzleContour.reshape(4, 2))
+        endX = (x + 1) * X
+        endY = (y + 1) * Y
 
-    if debug:
-        cv2.imshow("Puzzle Threshold", threshold)
-        # cv2.waitKey(0)
+        row.append((startX, startY, endX, endY))
 
-        output = imgUMat.copy()
-        cv2.drawContours(output, [puzzleContour], -1, (0, 255, 0), 2)
-        cv2.imshow('Puzzle Contours', output)
-        # cv2.waitKey(0)
+        cell = warped[startY:endY, startX:endX]
+        digit = extractionDigit(cell, debug=True)
 
-        cv2.imshow("Puzzle Transform", puzzle)
-        cv2.waitKey(0)
+        if digit is not None:
+            plc = cv2.resize(digit, (28, 28))
+            plc = plc.astype('float') / 255.0
+            plc = img_to_array(plc)
+            plc = np.expand_dims(plc, axis=0)
 
-    return (puzzle, warped)
+            pred = model.predict(plc).argmax(axis=1)[0]
+            board[y, x] = pred
 
+    cellLocs.append(row)
 
-def extractionDigit(cell, debug=False):
-    threshold = cv2.threshold(cell, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-    threshold = clear_border(threshold)
+print(r"Board")
+puzzle = Sudoku(3, 3, board=board.tolist())
+puzzle.show()
 
-    contour = cv2.findContours(threshold.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contour = imutils.grab_contours(contour)
+print("[INFO] solving Sudoku puzzle...")
+solution = puzzle.solve()
+solution.show_full()
 
-    if len(contour) == 0:
-        return None
+for (cellRow, boardRow) in zip(cellLocs, solution.board):
+    for (box, digit) in zip(cellRow, boardRow):
+        startX, startY, endX, endY = box
 
-    contours = max(contour, key=cv2.contourArea)
-    mask = np.zeros(threshold.shape, dtype='uint8')
-    cv2.drawContours(mask, [contours], -1, 255, -1)
+        textX = int((endX - startX) * 0.33)
+        textY = int((endY - startY) * -0.2)
+        textX += startX
+        textY += endY
 
-    h, w = threshold.shape
-    percentFilled = cv2.countNonZero(mask) / float(h * w)
+        cv2.putText(puzzleImage, str(digit), (textX, textY),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 255), 2)
 
-    if percentFilled < 0.03:
-        return None
-
-    digit = cv2.bitwise_and(threshold, threshold, mask=mask)
-
-    if debug:
-        cv2.imshow("Cell Threshold", threshold)
-        cv2.imshow('Digit', threshold)
-        cv2.waitKey(0)
-
-    return digit
-
-
-find(test, True)
+cv2.imshow("Sudoku Result", puzzleImage)
+cv2.waitKey(0)
