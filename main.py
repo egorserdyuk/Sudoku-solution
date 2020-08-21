@@ -10,7 +10,8 @@ print(r"Load classifier")
 model = load_model('assets/model.h5')
 
 print(r"Processing")
-image = cv2.imread('assets/example.jpg')
+address = 'assets/example.jpg'
+image = cv2.imread(address)
 image = imutils.resize(image, width=600)
 
 (puzzleImage, warped) = find(image, debug=False)
@@ -72,4 +73,5 @@ for (cellRow, boardRow) in zip(cellLocations, solution.board):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 255), 2)
 
 cv2.imshow(r"Result", puzzleImage)
+cv2.imwrite(r'assets/result_{0}.png'.format((address.split('/')[1]).split('.')[0]), puzzleImage)
 cv2.waitKey(0)
