@@ -3,7 +3,7 @@ from tensorflow.keras.optimizers import Adam
 # from tensorflow.keras.datasets import mnist
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.metrics import classification_report
-from keras import backend as K
+# from keras import backend as K
 import tensorflow as tf
 import datetime
 
