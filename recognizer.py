@@ -26,51 +26,54 @@ def find(image, debug=False):
             break
 
     if puzzleContour is None:
-        raise Exception(("Couldn't find any Sudoku outline"))
+        raise Exception(r"Couldn't find any Sudoku outline")
 
     puzzle = four_point_transform(image, puzzleContour.reshape(4, 2))
     warped = four_point_transform(gray, puzzleContour.reshape(4, 2))
 
     if debug:
-        cv2.imshow("Puzzle Threshold", threshold)
+        cv2.imshow(r"Puzzle Threshold", threshold)
         # cv2.waitKey(0)
 
         output = image.copy()
         cv2.drawContours(output, [puzzleContour], -1, (0, 255, 0), 2)
-        cv2.imshow('Puzzle Contours', output)
+        cv2.imshow(r"Puzzle Contours", output)
         # cv2.waitKey(0)
 
-        cv2.imshow("Puzzle Transform", puzzle)
+        cv2.imshow(r"Puzzle Transform", puzzle)
         cv2.waitKey(0)
 
     return (puzzle, warped)
 
 
-def extractionDigit(cell, debug=False):
-    threshold = cv2.threshold(cell, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-    threshold = clear_border(threshold)
+def extract_digit(cell, debug=False):
+    thresh = cv2.threshold(cell, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    thresh = clear_border(thresh)
 
-    contour = cv2.findContours(threshold.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if debug:
+        cv2.imshow(r"Cell Threshold", thresh)
+        cv2.waitKey(0)
+
+    contour = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contour = imutils.grab_contours(contour)
 
     if len(contour) == 0:
         return None
 
     contours = max(contour, key=cv2.contourArea)
-    mask = np.zeros(threshold.shape, dtype='uint8')
+    mask = np.zeros(thresh.shape, dtype='uint8')
     cv2.drawContours(mask, [contours], -1, 255, -1)
 
-    h, w = threshold.shape
+    h, w = thresh.shape
     percentFilled = cv2.countNonZero(mask) / float(h * w)
 
     if percentFilled < 0.03:
         return None
 
-    digit = cv2.bitwise_and(threshold, threshold, mask=mask)
+    digit = cv2.bitwise_and(thresh, thresh, mask=mask)
 
     if debug:
-        cv2.imshow("Cell Threshold", threshold)
-        cv2.imshow('Digit', threshold)
+        cv2.imshow(r"Digit", digit)
         cv2.waitKey(0)
 
     return digit
