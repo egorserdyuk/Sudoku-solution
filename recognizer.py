@@ -1,0 +1,79 @@
+from imutils.perspective import four_point_transform
+from skimage.segmentation import clear_border
+import numpy as np
+import imutils
+import cv2
+
+
+def find(image, debug=False):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (7, 7), 3)
+    threshold = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    threshold = cv2.bitwise_not(threshold)
+
+    contour = cv2.findContours(threshold.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contour = imutils.grab_contours(contour)
+    contour = sorted(contour, key=cv2.contourArea, reverse=True)
+
+    puzzleContour = None
+
+    for obj in contour:
+        peri = cv2.arcLength(obj, True)
+        approximation = cv2.approxPolyDP(obj, 0.02 * peri, True)
+
+        if len(approximation) == 4:
+            puzzleContour = approximation
+            break
+
+    if puzzleContour is None:
+        raise Exception(r"Couldn't find any Sudoku outline")
+
+    puzzle = four_point_transform(image, puzzleContour.reshape(4, 2))
+    warped = four_point_transform(gray, puzzleContour.reshape(4, 2))
+
+    if debug:
+        cv2.imshow(r"Puzzle Threshold", threshold)
+        # cv2.waitKey(0)
+
+        output = image.copy()
+        cv2.drawContours(output, [puzzleContour], -1, (0, 255, 0), 2)
+        cv2.imshow(r"Puzzle Contours", output)
+        # cv2.waitKey(0)
+
+        cv2.imshow(r"Puzzle Transform", puzzle)
+        cv2.waitKey(0)
+
+    return (puzzle, warped)
+
+
+def extract_digit(cell, debug=False):
+    thresh = cv2.threshold(cell, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    thresh = clear_border(thresh)
+
+    if debug:
+        cv2.imshow(r"Cell Threshold", thresh)
+        cv2.waitKey(0)
+
+    contour = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contour = imutils.grab_contours(contour)
+
+    if len(contour) == 0:
+        return None
+
+    contours = max(contour, key=cv2.contourArea)
+    mask = np.zeros(thresh.shape, dtype='uint8')
+    cv2.drawContours(mask, [contours], -1, 255, -1)
+
+    h, w = thresh.shape
+    percentFilled = cv2.countNonZero(mask) / float(h * w)
+
+    if percentFilled < 0.03:
+        return None
+
+    digit = cv2.bitwise_and(thresh, thresh, mask=mask)
+
+    if debug:
+        cv2.imshow(r"Digit", digit)
+        cv2.waitKey(0)
+
+    return digit
