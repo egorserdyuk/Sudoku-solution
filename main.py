@@ -6,6 +6,12 @@ import numpy as np
 import imutils
 import cv2
 
+import tensorflow as tf
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_virtual_device_configuration(gpus[0], [
+    tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2000)])
+
 print(r"Load classifier")
 model = load_model('assets/model.h5')
 

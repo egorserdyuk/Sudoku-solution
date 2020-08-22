@@ -7,11 +7,17 @@ from sklearn.metrics import classification_report
 import numpy as np
 import matplotlib.pyplot as plt
 
+import tensorflow as tf
+
 modelOutput = 'assets/model.h5'
 
 INIT_LR = 1e-3
-EPOCHS = 10
+EPOCHS = 30
 BS = 128
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_virtual_device_configuration(gpus[0], [
+    tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2000)])
 
 print(r"Access to MNIST")
 ((trainData, trainLabels), (testData, testLabels)) = mnist.load_data()
